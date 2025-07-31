@@ -8,6 +8,9 @@
 !README.md
 !LICENSE
 
+!cmd/
+!cmd/**/*
+
 !manifest/
 !manifest/**/*
 
