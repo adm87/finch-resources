@@ -10,3 +10,6 @@
 
 !manifest/
 !manifest/**/*
+
+!storage/
+!storage/**/*
