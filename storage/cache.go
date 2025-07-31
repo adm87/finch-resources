@@ -179,6 +179,30 @@ func (c *ResourceCache) Load(names ...string) error {
 	return nil
 }
 
+// Unload unloads resources by their names from the cache.
+//
+// Unloading a resource will remove it from the cache and deallocate it, making it unusable.
+func (c *ResourceCache) Unload(names ...string) error {
+	if len(names) == 0 {
+		return nil
+	}
+
+	for _, name := range linq.Distinct(names) {
+		if image, ok := c.imageStore.items[name]; ok {
+			image.Deallocate()
+			delete(c.imageStore.items, name)
+			continue
+		}
+		if _, ok := c.dataStore.items[name]; ok {
+			c.dataStore.items[name] = nil
+			delete(c.dataStore.items, name)
+			continue
+		}
+	}
+
+	return nil
+}
+
 func (c *ResourceCache) internal_load_batches(batches [][]linq.Pair[string, manifest.ResourceMetadata]) (map[string][]byte, error) {
 	if len(batches) == 1 {
 		return c.internal_load_batch(batches[0])
@@ -269,6 +293,10 @@ func (c *ResourceCache) internal_load_batch(batch []linq.Pair[string, manifest.R
 		data, err := io.ReadAll(file)
 		if err != nil {
 			return nil, errors.NewIOError(fmt.Sprintf("failed to read resource '%s' at path '%s': %v", pair.First, path, err))
+		}
+
+		if err := file.Close(); err != nil {
+			return nil, errors.NewIOError(fmt.Sprintf("failed to close resource '%s' at path '%s': %v", pair.First, path, err))
 		}
 
 		dataSize := int64(len(data))
