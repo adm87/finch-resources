@@ -22,13 +22,13 @@ var ManifestCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		manifest, err := manifest.GenerateManifest(abs, ManifestName, hash.MakeSetFrom(
+		m, err := manifest.GenerateManifest(abs, ManifestName, hash.MakeSetFrom(
 			".go", ".mod", ".sum", ".gitignore", ".git", ".DS_Store", ".vscode", ".idea",
 		))
 		if err != nil {
 			return err
 		}
-		return fsys.WriteJson(filepath.Join(RootPath, ManifestName), manifest)
+		return fsys.WriteJson(filepath.Join(RootPath, ManifestName), m)
 	},
 	SilenceErrors: true,
 	SilenceUsage:  true,

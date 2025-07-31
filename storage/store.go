@@ -7,45 +7,58 @@ type Store[T any] struct {
 	items map[string]*T
 }
 
-// Add adds an item to the store.
-//
-// Panics if the name is empty, if the item already exists, or if the item is nil.
-func (s *Store[T]) Add(name string, item *T) {
-	if s.Has(name) {
-		panic(errors.NewDuplicateError("item already exists: " + name))
-	}
+// Add adds an item to the store with the given name.
+// Returns an error if the name is empty, the item is nil, or an item with the same name already exists.
+func (s *Store[T]) Add(name string, item *T) error {
 	if item == nil {
-		panic(errors.NewNilError("item cannot be nil"))
+		return errors.NewNilError("item cannot be nil")
 	}
+
+	hasItem, err := s.Has(name)
+	if err != nil {
+		return err
+	}
+	if hasItem {
+		return errors.NewDuplicateError("item already exists: " + name)
+	}
+
 	s.items[name] = item
+	return nil
 }
 
-// Remove removes an item from the store by its name.
-//
-// Panics if the name is empty.
-func (s *Store[T]) Remove(name string) {
-	if s.Has(name) {
-		delete(s.items, name)
-	}
-}
-
-// Get retrieves an item from the store by its name.
-//
-// Panics if the name is empty or if the item does not exist.
-func (s *Store[T]) Get(name string) (*T, error) {
-	if s.Has(name) {
-		return s.items[name], nil
-	}
-	return nil, errors.NewNotFoundError("item not found: " + name)
-}
-
-// Has checks if an item exists in the store by its name.
-//
-// Panics if the name is empty.
-func (s *Store[T]) Has(name string) bool {
+// Remove removes the item with the given name from the store.
+// Returns an error if the name is empty or if the item does not exist.
+func (s *Store[T]) Remove(name string) error {
 	if name == "" {
-		panic(errors.InvalidArgumentError("item name cannot be empty"))
+		return errors.InvalidArgumentError("item name cannot be empty")
+	}
+	if _, exists := s.items[name]; !exists {
+		return errors.NewNotFoundError("item not found: " + name)
+	}
+
+	delete(s.items, name)
+	return nil
+}
+
+// Get retrieves the item with the given name from the store.
+// Returns an error if the name is empty or if the item does not exist.
+func (s *Store[T]) Get(name string) (*T, error) {
+	hasItem, err := s.Has(name)
+	if err != nil {
+		return nil, err
+	}
+	if !hasItem {
+		return nil, errors.NewNotFoundError("item not found: " + name)
+	}
+	return s.items[name], nil
+}
+
+// Has checks if an item with the given name exists in the store.
+// Returns an error if the name is empty.
+func (s *Store[T]) Has(name string) (bool, error) {
+	if name == "" {
+		return false, errors.InvalidArgumentError("item name cannot be empty")
 	}
 	_, exists := s.items[name]
-	return exists
+	return exists, nil
 }

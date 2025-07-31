@@ -1,9 +1,18 @@
 package storage
 
 import (
+	"embed"
+	"fmt"
+	"io"
 	"io/fs"
+	"path/filepath"
+	"sync"
 
+	stderrs "errors"
+
+	"github.com/adm87/finch-core/errors"
 	"github.com/adm87/finch-core/hash"
+	"github.com/adm87/finch-core/linq"
 	"github.com/adm87/finch-resources/manifest"
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -11,6 +20,13 @@ import (
 const (
 	ResourceTypeImage = "image"
 	ResourceTypeData  = "data"
+)
+
+const (
+	// ResourceBatchThreshold is the number of resources that can be loaded before parallel loading is used.
+	//
+	// If the number of resources isn't fully divisible, then the request is split into batches of the nearest divisible size.
+	ResourceBatchThreshold = 100
 )
 
 var (
@@ -48,6 +64,7 @@ type ResourceCache struct {
 // NewResourceCache creates a new ResourceCache instance.
 func NewResourceCache() *ResourceCache {
 	return &ResourceCache{
+		manifest:    manifest.ResourceManifest{},
 		filesystems: make(map[string]fs.FS),
 		imageStore: Store[ebiten.Image]{
 			items: make(map[string]*ebiten.Image),
@@ -56,6 +73,49 @@ func NewResourceCache() *ResourceCache {
 			items: make(map[string]*[]byte),
 		},
 	}
+}
+
+func (c *ResourceCache) Manifest() manifest.ResourceManifest {
+	return c.manifest
+}
+
+func (c *ResourceCache) SetManifest(m manifest.ResourceManifest) error {
+	if err := manifest.ValidateManifest(m); err != nil {
+		return err
+	}
+	c.manifest = m
+	return nil
+}
+
+func (c *ResourceCache) AddFilesystem(root string, fsys fs.FS) error {
+	if root == "" {
+		return errors.InvalidArgumentError("root must not be empty")
+	}
+	if fsys == nil {
+		return errors.NewNilError("filesystem cannot be nil")
+	}
+
+	if _, exists := c.filesystems[root]; exists {
+		return errors.NewDuplicateError(fmt.Sprintf("filesystem for root '%s' already exists", root))
+	}
+
+	c.filesystems[root] = fsys
+	return nil
+}
+
+func (c *ResourceCache) RemoveFilesystem(root string) error {
+	if root == "" {
+		return errors.InvalidArgumentError("root must not be empty")
+	}
+
+	if _, exists := c.filesystems[root]; !exists {
+		return nil
+	}
+
+	// TODO:  Consider deallocating resources associated with this filesystem
+
+	delete(c.filesystems, root)
+	return nil
 }
 
 // Images returns the image store of the cache.
@@ -72,17 +132,152 @@ func (c *ResourceCache) Data() *Store[[]byte] {
 	return &c.dataStore
 }
 
-// LoadManifest loads a resource manifest from the specified path.
-func (c *ResourceCache) LoadManifest(path string) (*manifest.ResourceManifest, error) {
-	return &c.manifest, nil
+// ClearCache clears the cache of all loaded resources.
+//
+// Resources are deallocated and removed from the cache, making them unusable.
+func (c *ResourceCache) ClearCache() {
+	for name := range c.imageStore.items {
+		c.imageStore.items[name].Deallocate()
+	}
+	for name := range c.dataStore.items {
+		c.dataStore.items[name] = nil
+	}
+	c.imageStore.items = make(map[string]*ebiten.Image)
+	c.dataStore.items = make(map[string]*[]byte)
 }
 
 // Load loads resources by their names into the cache.
-//
-// Each name must correspond to a file within the manifest. Calls will panic if a name is empty,
-// does not exist in the manifest, or if the manifest is not loaded.
-//
-// If a resource is already loaded, it will be skipped.
 func (c *ResourceCache) Load(names ...string) error {
+	if len(names) == 0 {
+		return nil
+	}
+
+	requests := []linq.Pair[string, manifest.ResourceMetadata]{}
+	for _, name := range linq.Distinct(names) {
+		metadata, ok := c.manifest[name]
+		if !ok {
+			return errors.NewNotFoundError(fmt.Sprintf("resource '%s' not found in manifest", name))
+		}
+		requests = append(requests, linq.Pair[string, manifest.ResourceMetadata]{
+			First:  name,
+			Second: metadata,
+		})
+	}
+
+	batches := linq.Batch(requests, ResourceBatchThreshold)
+	if len(batches) == 0 {
+		return nil
+	}
+
+	results, err := c.internal_load_batches(batches)
+	if err != nil {
+		return err
+	}
+
+	println(len(results), "resources loaded into cache")
+
 	return nil
+}
+
+func (c *ResourceCache) internal_load_batches(batches [][]linq.Pair[string, manifest.ResourceMetadata]) (map[string][]byte, error) {
+	if len(batches) == 1 {
+		return c.internal_load_batch(batches[0])
+	}
+
+	results := make(map[string][]byte)
+	batchResultCh := make(chan map[string][]byte, len(batches))
+	batchErrCh := make(chan error, len(batches))
+
+	wg := sync.WaitGroup{}
+
+	wg.Add(len(batches))
+	for _, batch := range batches {
+		go func(b []linq.Pair[string, manifest.ResourceMetadata]) {
+			defer wg.Done()
+
+			// If a panic occurs, we'll catch it and send an error to the channel
+			defer func() {
+				if r := recover(); r != nil {
+					batchErrCh <- errors.NewParallelError(fmt.Sprintf("panic while loading batch: %v", r))
+				}
+			}()
+
+			// Load the batch of resources
+			result, err := c.internal_load_batch(b)
+			if err != nil {
+				batchErrCh <- err
+				return
+			}
+
+			// Send the result to the channel
+			batchResultCh <- result
+		}(batch)
+	}
+	wg.Wait()
+
+	close(batchResultCh)
+	close(batchErrCh)
+
+	// Collect errors from the batchErrCh
+	errs := make([]error, 0)
+	for err := range batchErrCh {
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	// If there are any errors, return them
+	if len(errs) > 0 {
+		return nil, stderrs.Join(errs...)
+	}
+
+	// Collect results from the batchResultCh
+	for result := range batchResultCh {
+		for name, data := range result {
+			results[name] = data
+		}
+	}
+
+	return results, nil
+}
+
+func (c *ResourceCache) internal_load_batch(batch []linq.Pair[string, manifest.ResourceMetadata]) (map[string][]byte, error) {
+	results := make(map[string][]byte)
+
+	if len(batch) == 0 {
+		return results, nil
+	}
+
+	for _, pair := range batch {
+		filesys := c.filesystems[pair.Second.Root]
+		if filesys == nil {
+			return nil, errors.NewNotFoundError(fmt.Sprintf("filesystem for root '%s' not found", pair.Second.Root))
+		}
+
+		path := pair.Second.Path
+
+		if _, ok := filesys.(embed.FS); ok {
+			path = filepath.Join(pair.Second.Root, pair.Second.Path)
+		}
+
+		file, err := filesys.Open(path)
+		if err != nil {
+			return nil, errors.NewIOError(fmt.Sprintf("failed to open resource '%s' at path '%s': %v", pair.First, path, err))
+		}
+		defer file.Close()
+
+		data, err := io.ReadAll(file)
+		if err != nil {
+			return nil, errors.NewIOError(fmt.Sprintf("failed to read resource '%s' at path '%s': %v", pair.First, path, err))
+		}
+
+		dataSize := int64(len(data))
+		if dataSize != pair.Second.Size {
+			return nil, errors.NewInvalidArgumentError(fmt.Sprintf("resource '%s' at path '%s' has size %d, expected %d", pair.First, path, dataSize, pair.Second.Size))
+		}
+
+		results[pair.First] = data
+	}
+
+	return results, nil
 }

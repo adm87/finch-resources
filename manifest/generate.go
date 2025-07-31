@@ -14,12 +14,13 @@ var defaultIgnoredExtensions = hash.HashSet[string]{
 	".go": hash.SetEntry,
 }
 
-func GenerateManifest(root string, manifestName string, ignoredExtensions hash.HashSet[string]) (*ResourceManifest, error) {
+// GenerateManifest walks through the specified root directory and generates metadata for each resource in it. That metadata is then returned as a ResourceManifest.
+func GenerateManifest(root string, manifestName string, ignoredExtensions hash.HashSet[string]) (ResourceManifest, error) {
 	if ignoredExtensions == nil {
 		ignoredExtensions = defaultIgnoredExtensions
 	}
 
-	manifest := &ResourceManifest{}
+	manifest := ResourceManifest{}
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -32,35 +33,30 @@ func GenerateManifest(root string, manifestName string, ignoredExtensions hash.H
 		}
 
 		ext := filepath.Ext(path)
-
-		// If the file extension is in the ignored set, skip it
 		if ignoredExtensions.Contains(ext) {
 			return nil
 		}
 
 		relativePath, err := filepath.Rel(root, path)
-
 		if err != nil {
 			return err
 		}
 
 		parts := strings.Split(relativePath, string(filepath.Separator))
-
 		if len(parts) == 0 {
-			panic("relative path should not be empty")
+			return errors.NewInvalidArgumentError("path must contain at least one part")
 		}
 
 		filename := strings.TrimSuffix(parts[len(parts)-1], ext)
-
 		if filename == "" {
-			panic("filename should not be empty")
+			return errors.NewInvalidArgumentError("filename must not be empty")
 		}
 
-		if _, exists := (*manifest)[filename]; exists {
-			panic(errors.NewDuplicateError(filename))
+		if _, exists := manifest[filename]; exists {
+			return errors.NewDuplicateError(filename)
 		}
 
-		(*manifest)[filename] = ResourceMetadata{
+		manifest[filename] = ResourceMetadata{
 			Root: parts[0],
 			Path: strings.Join(parts[1:], string(filepath.Separator)),
 			Size: info.Size(),
