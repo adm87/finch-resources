@@ -59,8 +59,8 @@ type ResourceCache struct {
 	manifest    manifest.ResourceManifest
 	filesystems map[string]fs.FS
 
-	imageStore Store[ebiten.Image]
-	dataStore  Store[[]byte]
+	imageStore Store[*ebiten.Image]
+	dataStore  Store[*[]byte]
 }
 
 // NewResourceCache creates a new ResourceCache instance.
@@ -68,12 +68,8 @@ func NewResourceCache() *ResourceCache {
 	return &ResourceCache{
 		manifest:    manifest.ResourceManifest{},
 		filesystems: make(map[string]fs.FS),
-		imageStore: Store[ebiten.Image]{
-			items: make(map[string]*ebiten.Image),
-		},
-		dataStore: Store[[]byte]{
-			items: make(map[string]*[]byte),
-		},
+		imageStore:  make(Store[*ebiten.Image]),
+		dataStore:   make(Store[*[]byte]),
 	}
 }
 
@@ -123,14 +119,14 @@ func (c *ResourceCache) RemoveFilesystem(root string) error {
 // Images returns the image store of the cache.
 //
 // This store contains loaded images. Call LoadImage to load images into this store.
-func (c *ResourceCache) Images() *Store[ebiten.Image] {
+func (c *ResourceCache) Images() *Store[*ebiten.Image] {
 	return &c.imageStore
 }
 
 // Data returns the data store of the cache.
 //
 // This store contains loaded data. Call LoadData to load data into this store.
-func (c *ResourceCache) Data() *Store[[]byte] {
+func (c *ResourceCache) Data() *Store[*[]byte] {
 	return &c.dataStore
 }
 
@@ -138,14 +134,14 @@ func (c *ResourceCache) Data() *Store[[]byte] {
 //
 // Resources are deallocated and removed from the cache, making them unusable.
 func (c *ResourceCache) ClearCache() {
-	for name := range c.imageStore.items {
-		c.imageStore.items[name].Deallocate()
+	for name := range c.imageStore {
+		c.imageStore[name].Deallocate()
 	}
-	for name := range c.dataStore.items {
-		c.dataStore.items[name] = nil
+	for name := range c.dataStore {
+		c.dataStore[name] = nil
 	}
-	c.imageStore.items = make(map[string]*ebiten.Image)
-	c.dataStore.items = make(map[string]*[]byte)
+	c.imageStore = make(Store[*ebiten.Image])
+	c.dataStore = make(Store[*[]byte])
 }
 
 // Load loads resources by their names into the cache.
@@ -205,13 +201,12 @@ func (c *ResourceCache) Unload(names ...string) error {
 	}
 
 	for _, name := range linq.Distinct(names) {
-		if image, ok := c.imageStore.items[name]; ok {
+		if image, ok := c.imageStore[name]; ok {
 			image.Deallocate()
 			c.imageStore.Remove(name)
 			continue
 		}
-		if _, ok := c.dataStore.items[name]; ok {
-			c.dataStore.items[name] = nil
+		if _, ok := c.dataStore[name]; ok {
 			c.dataStore.Remove(name)
 			continue
 		}
