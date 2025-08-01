@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"embed"
 	"fmt"
 	"io"
@@ -15,6 +16,7 @@ import (
 	"github.com/adm87/finch-core/linq"
 	"github.com/adm87/finch-resources/manifest"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 const (
@@ -174,7 +176,22 @@ func (c *ResourceCache) Load(names ...string) error {
 		return err
 	}
 
-	println(len(results), "resources loaded into cache")
+	for name, data := range results {
+		rtype, err := c.internal_get_resource_type(c.manifest[name])
+		if err != nil {
+			return err
+		}
+		switch rtype {
+		case ResourceTypeImage:
+			img, _, err := ebitenutil.NewImageFromReader(bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+			c.imageStore.Add(name, img)
+		case ResourceTypeData:
+			c.dataStore.Add(name, &data)
+		}
+	}
 
 	return nil
 }
@@ -190,12 +207,12 @@ func (c *ResourceCache) Unload(names ...string) error {
 	for _, name := range linq.Distinct(names) {
 		if image, ok := c.imageStore.items[name]; ok {
 			image.Deallocate()
-			delete(c.imageStore.items, name)
+			c.imageStore.Remove(name)
 			continue
 		}
 		if _, ok := c.dataStore.items[name]; ok {
 			c.dataStore.items[name] = nil
-			delete(c.dataStore.items, name)
+			c.dataStore.Remove(name)
 			continue
 		}
 	}
@@ -245,9 +262,7 @@ func (c *ResourceCache) internal_load_batches(batches [][]linq.Pair[string, mani
 	// Collect errors from the batchErrCh
 	errs := make([]error, 0)
 	for err := range batchErrCh {
-		if err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, err)
 	}
 
 	// If there are any errors, return them
@@ -308,4 +323,14 @@ func (c *ResourceCache) internal_load_batch(batch []linq.Pair[string, manifest.R
 	}
 
 	return results, nil
+}
+
+func (c *ResourceCache) internal_get_resource_type(m manifest.ResourceMetadata) (string, error) {
+	if ImageTypes.Contains(filepath.Ext(m.Path)) {
+		return ResourceTypeImage, nil
+	}
+	if DataTypes.Contains(filepath.Ext(m.Path)) {
+		return ResourceTypeData, nil
+	}
+	return "", errors.NewInvalidArgumentError(fmt.Sprintf("unknown resource type for path '%s'", m.Path))
 }
