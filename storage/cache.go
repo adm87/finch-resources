@@ -119,15 +119,15 @@ func (c *ResourceCache) RemoveFilesystem(root string) error {
 // Images returns the image store of the cache.
 //
 // This store contains loaded images. Call LoadImage to load images into this store.
-func (c *ResourceCache) Images() *Store[*ebiten.Image] {
-	return &c.imageStore
+func (c *ResourceCache) Images() Store[*ebiten.Image] {
+	return c.imageStore
 }
 
 // Data returns the data store of the cache.
 //
 // This store contains loaded data. Call LoadData to load data into this store.
-func (c *ResourceCache) Data() *Store[*[]byte] {
-	return &c.dataStore
+func (c *ResourceCache) Data() Store[*[]byte] {
+	return c.dataStore
 }
 
 // ClearCache clears the cache of all loaded resources.
