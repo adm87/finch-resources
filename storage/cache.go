@@ -59,8 +59,8 @@ type ResourceCache struct {
 	manifest    manifest.ResourceManifest
 	filesystems map[string]fs.FS
 
-	imageStore Store[*ebiten.Image]
-	dataStore  Store[*[]byte]
+	imageStore *Store[*ebiten.Image]
+	dataStore  *Store[*[]byte]
 }
 
 // NewResourceCache creates a new ResourceCache instance.
@@ -68,8 +68,8 @@ func NewResourceCache() *ResourceCache {
 	return &ResourceCache{
 		manifest:    manifest.ResourceManifest{},
 		filesystems: make(map[string]fs.FS),
-		imageStore:  make(Store[*ebiten.Image]),
-		dataStore:   make(Store[*[]byte]),
+		imageStore:  NewStore[*ebiten.Image](),
+		dataStore:   NewStore[*[]byte](),
 	}
 }
 
@@ -85,19 +85,21 @@ func (c *ResourceCache) SetManifest(m manifest.ResourceManifest) error {
 	return nil
 }
 
-func (c *ResourceCache) AddFilesystem(root string, fsys fs.FS) error {
-	if root == "" {
-		return errors.InvalidArgumentError("root must not be empty")
-	}
-	if fsys == nil {
-		return errors.NewNilError("filesystem cannot be nil")
-	}
+func (c *ResourceCache) AddFilesystems(fsystems map[string]fs.FS) error {
+	for root, fsys := range fsystems {
+		if root == "" {
+			return errors.InvalidArgumentError("root must not be empty")
+		}
+		if fsys == nil {
+			return errors.NewNilError("filesystem cannot be nil")
+		}
 
-	if _, exists := c.filesystems[root]; exists {
-		return errors.NewDuplicateError(fmt.Sprintf("filesystem for root '%s' already exists", root))
-	}
+		if _, exists := c.filesystems[root]; exists {
+			return errors.NewDuplicateError(fmt.Sprintf("filesystem for root '%s' already exists", root))
+		}
 
-	c.filesystems[root] = fsys
+		c.filesystems[root] = fsys
+	}
 	return nil
 }
 
@@ -119,14 +121,14 @@ func (c *ResourceCache) RemoveFilesystem(root string) error {
 // Images returns the image store of the cache.
 //
 // This store contains loaded images. Call LoadImage to load images into this store.
-func (c *ResourceCache) Images() Store[*ebiten.Image] {
+func (c *ResourceCache) Images() *Store[*ebiten.Image] {
 	return c.imageStore
 }
 
 // Data returns the data store of the cache.
 //
 // This store contains loaded data. Call LoadData to load data into this store.
-func (c *ResourceCache) Data() Store[*[]byte] {
+func (c *ResourceCache) Data() *Store[*[]byte] {
 	return c.dataStore
 }
 
@@ -134,14 +136,13 @@ func (c *ResourceCache) Data() Store[*[]byte] {
 //
 // Resources are deallocated and removed from the cache, making them unusable.
 func (c *ResourceCache) ClearCache() {
-	for name := range c.imageStore {
-		c.imageStore[name].Deallocate()
+	for name := range c.imageStore.items {
+		c.imageStore.items[name].Deallocate()
+		c.imageStore.Remove(name)
 	}
-	for name := range c.dataStore {
-		c.dataStore[name] = nil
+	for name := range c.dataStore.items {
+		c.dataStore.Remove(name)
 	}
-	c.imageStore = make(Store[*ebiten.Image])
-	c.dataStore = make(Store[*[]byte])
 }
 
 // Load loads resources by their names into the cache.
@@ -201,15 +202,39 @@ func (c *ResourceCache) Unload(names ...string) error {
 	}
 
 	for _, name := range linq.Distinct(names) {
-		if image, ok := c.imageStore[name]; ok {
+		if image, ok := c.imageStore.items[name]; ok {
 			image.Deallocate()
 			c.imageStore.Remove(name)
 			continue
 		}
-		if _, ok := c.dataStore[name]; ok {
+		if _, ok := c.dataStore.items[name]; ok {
 			c.dataStore.Remove(name)
 			continue
 		}
+	}
+
+	return nil
+}
+
+// SetFallback sets a fallback resource for the cache. A single fallback resource can be set for each storage type.
+//
+// By providing the resource's manifest key, the cache will set the fallback resource for the appropriate storage type.
+func (c *ResourceCache) SetFallback(name string) error {
+	metadata, exists := c.manifest[name]
+	if !exists {
+		return errors.NewNotFoundError(fmt.Sprintf("resource '%s' not found in manifest", name))
+	}
+
+	rtype, err := c.internal_get_resource_type(metadata)
+	if err != nil {
+		return errors.NewInvalidArgumentError(fmt.Sprintf("failed to get resource type for '%s': %v", name, err))
+	}
+
+	switch rtype {
+	case ResourceTypeImage:
+		c.imageStore.SetFallback(name)
+	case ResourceTypeData:
+		c.dataStore.SetFallback(name)
 	}
 
 	return nil
