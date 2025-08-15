@@ -12,6 +12,7 @@ import (
 var (
 	RootPath     = "."
 	ManifestName = "manifest.json"
+	Indent       = false
 )
 
 var ManifestCmd = &cobra.Command{
@@ -28,6 +29,9 @@ var ManifestCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		if Indent {
+			return fsys.WriteJsonIndent(filepath.Join(RootPath, ManifestName), m)
+		}
 		return fsys.WriteJson(filepath.Join(RootPath, ManifestName), m)
 	},
 	SilenceErrors: true,
@@ -37,4 +41,5 @@ var ManifestCmd = &cobra.Command{
 func init() {
 	ManifestCmd.Flags().StringVar(&RootPath, "root", RootPath, "The root path to generate a resource manifest for.")
 	ManifestCmd.Flags().StringVar(&ManifestName, "name", ManifestName, "The name of the generated manifest file.")
+	ManifestCmd.Flags().BoolVar(&Indent, "indent", Indent, "Whether to indent the generated manifest file for readability.")
 }
