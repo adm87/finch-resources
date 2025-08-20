@@ -12,8 +12,8 @@ import (
 	stderrs "errors"
 
 	"github.com/adm87/finch-core/errors"
-	"github.com/adm87/finch-core/hash"
 	"github.com/adm87/finch-core/linq"
+	"github.com/adm87/finch-core/types"
 	"github.com/adm87/finch-resources/manifest"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	ImageTypes = hash.MakeSetFrom(
+	ImageTypes = types.MakeSetFrom(
 		".png",
 		".jpg",
 		".jpeg",
@@ -40,7 +40,7 @@ var (
 		".bmp",
 		".webp",
 	)
-	DataTypes = hash.MakeSetFrom(
+	DataTypes = types.MakeSetFrom(
 		".json",
 		".txt",
 		".xml",

@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/adm87/finch-core/fsys"
-	"github.com/adm87/finch-core/hash"
+	"github.com/adm87/finch-core/types"
 	"github.com/adm87/finch-resources/manifest"
 	"github.com/spf13/cobra"
 )
@@ -23,7 +23,7 @@ var ManifestCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		m, err := manifest.GenerateManifest(abs, ManifestName, hash.MakeSetFrom(
+		m, err := manifest.GenerateManifest(abs, ManifestName, types.MakeSetFrom(
 			".go", ".mod", ".sum", ".gitignore", ".git", ".DS_Store", ".vscode", ".idea",
 		))
 		if err != nil {

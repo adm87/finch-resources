@@ -6,16 +6,16 @@ import (
 	"strings"
 
 	"github.com/adm87/finch-core/errors"
-	"github.com/adm87/finch-core/hash"
+	"github.com/adm87/finch-core/types"
 )
 
 // defaultIgnoredExtensions is a set of file extensions that are ignored by default if not specified in the command line options.
-var defaultIgnoredExtensions = hash.HashSet[string]{
-	".go": hash.SetEntry,
+var defaultIgnoredExtensions = types.HashSet[string]{
+	".go": types.SetEntry,
 }
 
 // GenerateManifest walks through the specified root directory and generates metadata for each resource in it. That metadata is then returned as a ResourceManifest.
-func GenerateManifest(root string, manifestName string, ignoredExtensions hash.HashSet[string]) (ResourceManifest, error) {
+func GenerateManifest(root string, manifestName string, ignoredExtensions types.HashSet[string]) (ResourceManifest, error) {
 	if ignoredExtensions == nil {
 		ignoredExtensions = defaultIgnoredExtensions
 	}

@@ -2,12 +2,12 @@ package manifest
 
 import (
 	"github.com/adm87/finch-core/errors"
-	"github.com/adm87/finch-core/hash"
+	"github.com/adm87/finch-core/types"
 )
 
 func ValidateManifest(m ResourceManifest) error {
-	nameChecked := hash.HashSet[string]{}
-	pathChecked := hash.HashSet[string]{}
+	nameChecked := types.HashSet[string]{}
+	pathChecked := types.HashSet[string]{}
 	for key, metadata := range m {
 		if key == "" {
 			return errors.NewInvalidArgumentError("resource key must not be empty")
