@@ -2,6 +2,8 @@ package storage
 
 import "github.com/adm87/finch-core/errors"
 
+type StorageHandle[T any] string
+
 // Store is a generic store for items of type T, identified by a string name.
 type Store[T any] struct {
 	items    map[string]T
