@@ -8,10 +8,10 @@ import "github.com/hajimehoshi/ebiten/v2"
 
 var dataStore = NewStore[[]byte]()
 
-type DataHandle StorageHandle[[]byte]
+type DataHandle string
 
 func (h DataHandle) Get() ([]byte, error) {
-	data, err := dataStore.Get(h.String())
+	data, err := dataStore.Get(string(h))
 	if err != nil {
 		return nil, err
 	}
@@ -19,12 +19,8 @@ func (h DataHandle) Get() ([]byte, error) {
 }
 
 func (h DataHandle) IsValid() bool {
-	_, exists := dataStore.items[h.String()]
+	_, exists := dataStore.items[string(h)]
 	return exists
-}
-
-func (h DataHandle) String() string {
-	return string(h)
 }
 
 // =================================================================
@@ -33,10 +29,10 @@ func (h DataHandle) String() string {
 
 var imageStore = NewStore[*ebiten.Image]()
 
-type ImageHandle StorageHandle[*ebiten.Image]
+type ImageHandle string
 
 func (h ImageHandle) Get() (*ebiten.Image, error) {
-	img, err := imageStore.Get(h.String())
+	img, err := imageStore.Get(string(h))
 	if err != nil {
 		return nil, err
 	}
@@ -44,10 +40,6 @@ func (h ImageHandle) Get() (*ebiten.Image, error) {
 }
 
 func (h ImageHandle) IsValid() bool {
-	_, exists := imageStore.items[h.String()]
+	_, exists := imageStore.items[string(h)]
 	return exists
-}
-
-func (h ImageHandle) String() string {
-	return string(h)
 }
