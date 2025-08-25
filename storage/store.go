@@ -14,7 +14,7 @@ func NewStore[T any]() *Store[T] {
 	}
 }
 
-func (s *Store[T]) SetFallback(fallback string) {
+func (s *Store[T]) SetDefault(fallback string) {
 	s.fallback = fallback
 }
 

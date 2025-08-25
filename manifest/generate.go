@@ -10,9 +10,7 @@ import (
 )
 
 // defaultIgnoredExtensions is a set of file extensions that are ignored by default if not specified in the command line options.
-var defaultIgnoredExtensions = types.HashSet[string]{
-	".go": types.SetEntry,
-}
+var defaultIgnoredExtensions = types.MakeSetFrom(".go")
 
 // GenerateManifest walks through the specified root directory and generates metadata for each resource in it. That metadata is then returned as a ResourceManifest.
 func GenerateManifest(root string, manifestName string, ignoredExtensions types.HashSet[string]) (ResourceManifest, error) {

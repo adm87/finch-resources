@@ -11,8 +11,17 @@
 !cmd/
 !cmd/**/*
 
+!images/
+!images/**/*
+
 !manifest/
 !manifest/**/*
+
+!module/
+!module/**/*
+
+!resources/
+!resources/**/*
 
 !storage/
 !storage/**/*

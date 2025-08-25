@@ -1,5 +1,5 @@
-github.com/adm87/finch-core v0.0.0-20250814152244-9829a27e9698 h1:9r72C6qkRmODNAO1G0fcvVUg88WjUwqT4yo92ujDLr4=
-github.com/adm87/finch-core v0.0.0-20250814152244-9829a27e9698/go.mod h1:hglLOz/46ZEW3e0qxNPOevW2AKRqqJkaTR/QNGb9SDk=
+github.com/adm87/finch-core v0.0.0-20250824183055-5ac85e5299c3 h1:JXmIN84mP92HASwEf4JY9uGOQSvh8QvACpHJsL221Qc=
+github.com/adm87/finch-core v0.0.0-20250824183055-5ac85e5299c3/go.mod h1:hglLOz/46ZEW3e0qxNPOevW2AKRqqJkaTR/QNGb9SDk=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/ebitengine/gomobile v0.0.0-20240911145611-4856209ac325 h1:Gk1XUEttOk0/hb6Tq3WkmutWa0ZLhNn/6fc6XZpM7tM=
 github.com/ebitengine/gomobile v0.0.0-20240911145611-4856209ac325/go.mod h1:ulhSQcbPioQrallSuIzF8l1NKQoD7xmMZc5NxzibUMY=
