@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -20,7 +21,7 @@ func GenerateManifest(root string, manifestName string, ignoredExtensions types.
 
 	manifest := ResourceManifest{}
 
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(root, func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -30,17 +31,18 @@ func GenerateManifest(root string, manifestName string, ignoredExtensions types.
 			return nil
 		}
 
-		ext := filepath.Ext(path)
+		ext := filepath.Ext(p)
 		if ignoredExtensions.Contains(ext) {
 			return nil
 		}
 
-		relativePath, err := filepath.Rel(root, path)
+		relativePath, err := filepath.Rel(root, p)
 		if err != nil {
 			return err
 		}
+		relativePath = filepath.ToSlash(relativePath)
 
-		parts := strings.Split(relativePath, string(filepath.Separator))
+		parts := strings.Split(relativePath, "/")
 		if len(parts) == 0 {
 			return errors.NewInvalidArgumentError("path must contain at least one part")
 		}
@@ -56,7 +58,7 @@ func GenerateManifest(root string, manifestName string, ignoredExtensions types.
 
 		manifest[filename] = ResourceMetadata{
 			Root: parts[0],
-			Path: strings.Join(parts[1:], string(filepath.Separator)),
+			Path: path.Join(parts[1:]...),
 			Size: info.Size(),
 		}
 

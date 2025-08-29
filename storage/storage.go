@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -172,23 +173,23 @@ func load_batch(batch []types.Pair[string, manifest.ResourceMetadata]) error {
 
 	for _, request := range batch {
 		key := request.First
-		root := request.Second.Root
-		path := request.Second.Path
-		size := request.Second.Size
+		requestRoot := request.Second.Root
+		requestPath := request.Second.Path
+		requestSize := request.Second.Size
 
-		filesys, exists := filesystems[root]
+		filesys, exists := filesystems[requestRoot]
 		if !exists {
-			return errors.NewNotFoundError("unknown filesystem: " + root)
+			return errors.NewNotFoundError("unknown filesystem: " + requestRoot)
 		}
 
 		// Note: Loading from an embedded filesystem requires the root of the filesystem to be included in the path.
 
-		filesysPrefix := filepath.Join(root, string(filepath.Separator))
-		if _, ok := filesys.(embed.FS); ok && !strings.HasPrefix(path, filesysPrefix) {
-			path = filepath.Join(filesysPrefix, path)
+		filesysPrefix := path.Join(requestRoot)
+		if _, ok := filesys.(embed.FS); ok && !strings.HasPrefix(requestPath, filesysPrefix) {
+			requestPath = path.Join(filesysPrefix, requestPath)
 		}
 
-		file, err := filesys.Open(path)
+		file, err := filesys.Open(requestPath)
 		if err != nil {
 			return err
 		}
@@ -199,11 +200,11 @@ func load_batch(batch []types.Pair[string, manifest.ResourceMetadata]) error {
 			return err
 		}
 
-		if size != int64(len(raw)) {
-			return errors.NewConflictError(fmt.Sprintf("resource size mismatch. Expected %d, got %d", size, len(raw)))
+		if requestSize != int64(len(raw)) {
+			println(errors.NewConflictError(fmt.Sprintf("resource size mismatch. Expected %d, got %d", requestSize, len(raw))))
 		}
 
-		ext := strings.ToLower(filepath.Ext(path))
+		ext := strings.ToLower(filepath.Ext(requestPath))
 
 		cache, exists := cacheByAssetType[ext]
 		if !exists {

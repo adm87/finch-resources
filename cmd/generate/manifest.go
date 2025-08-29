@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"path"
 	"path/filepath"
 
 	"github.com/adm87/finch-core/fsys"
@@ -23,6 +24,7 @@ var ManifestCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		abs = filepath.ToSlash(abs)
 		m, err := manifest.GenerateManifest(abs, ManifestName, types.MakeSetFrom(
 			".go", ".mod", ".sum", ".gitignore", ".git", ".DS_Store", ".vscode", ".idea",
 		))
@@ -30,9 +32,9 @@ var ManifestCmd = &cobra.Command{
 			return err
 		}
 		if Indent {
-			return fsys.WriteJsonIndent(filepath.Join(RootPath, ManifestName), m)
+			return fsys.WriteJsonIndent(path.Join(RootPath, ManifestName), m)
 		}
-		return fsys.WriteJson(filepath.Join(RootPath, ManifestName), m)
+		return fsys.WriteJson(path.Join(RootPath, ManifestName), m)
 	},
 	SilenceErrors: true,
 	SilenceUsage:  true,
