@@ -16,23 +16,23 @@ import (
 // =================================================================
 
 var (
-	imageAssetTypes = types.MakeSetFrom(".png", ".jpg", ".jpeg")
-	cacheInstance   = &ImageCache{
+	assetTypes      = types.MakeSetFrom(".png", ".jpg", ".jpeg")
+	storageInstance = &ImageStorage{
 		mu:    sync.RWMutex{},
 		store: storage.NewStore[*ebiten.Image](),
 	}
 )
 
-type ImageCache struct {
+type ImageStorage struct {
 	mu    sync.RWMutex
 	store *storage.Store[*ebiten.Image]
 }
 
-func Cache() *ImageCache {
-	return cacheInstance
+func Storage() *ImageStorage {
+	return storageInstance
 }
 
-func (c *ImageCache) Get(key string) (*ebiten.Image, error) {
+func (c *ImageStorage) Get(key string) (*ebiten.Image, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -44,11 +44,7 @@ func (c *ImageCache) Get(key string) (*ebiten.Image, error) {
 	return img, nil
 }
 
-// =================================================================
-// Storage.Cache Implementation
-// =================================================================
-
-func (c *ImageCache) Allocate(key string, data []byte) error {
+func (c *ImageStorage) Allocate(key string, data []byte) error {
 	img, _, err := ebitenutil.NewImageFromReader(bytes.NewReader(data))
 	if err != nil {
 		return err
@@ -65,7 +61,24 @@ func (c *ImageCache) Allocate(key string, data []byte) error {
 	return nil
 }
 
-func (c *ImageCache) Deallocate(key string) error {
+func (c *ImageStorage) PutValue(key string, value any) error {
+	img, ok := value.(*ebiten.Image)
+	if !ok {
+		return errors.NewInvalidArgumentError("value must be of type *ebiten.Image")
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := c.store.Add(key, img); err != nil {
+		img.Deallocate()
+		return err
+	}
+
+	return nil
+}
+
+func (c *ImageStorage) Deallocate(key string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -83,11 +96,11 @@ func (c *ImageCache) Deallocate(key string) error {
 	return nil
 }
 
-func (c *ImageCache) AssetTypes() types.HashSet[string] {
-	return imageAssetTypes
+func (c *ImageStorage) AssetTypes() types.HashSet[string] {
+	return assetTypes
 }
 
-func (c *ImageCache) SetDefault(key string) error {
+func (c *ImageStorage) SetDefault(key string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -97,7 +110,7 @@ func (c *ImageCache) SetDefault(key string) error {
 	}
 
 	if !has {
-		return errors.NewNotFoundError("default image not found in cache: " + key)
+		return errors.NewNotFoundError("default image not found in storage: " + key)
 	}
 
 	c.store.SetDefault(key)

@@ -18,19 +18,22 @@ import (
 	"github.com/adm87/finch-resources/manifest"
 )
 
-// Cache defines the interface for a storage handler for a specific collection of asset types.
-type Cache interface {
+// StorageHandler defines the interface for a resource storage management system.
+//
+// Loaded resources are cached within the storage handler, and can be written to disk or deallocated as needed.
+type StorageHandler interface {
+	PutValue(key string, data any) error    // Store a value for a specific key.
 	Allocate(key string, data []byte) error // Allocate data for a specific key.
 	Deallocate(key string) error            // Deallocate data for a specific key.
-	AssetTypes() types.HashSet[string]      // Return the asset types (file extensions) supported by the cache.
+	AssetTypes() types.HashSet[string]      // Return the asset types (file extensions) supported by the storage.
 	SetDefault(key string) error            // Set the data for a specific key as the default data. This is returned if a key is not found.
 }
 
 var (
-	cacheByAssetType = make(map[string]Cache)
-	cacheByKey       = make(map[string]Cache)
-	filesystems      = make(map[string]fs.FS)
-	storageManifest  = make(manifest.ResourceManifest)
+	storageByAssetType = make(map[string]StorageHandler)
+	storageByKey       = make(map[string]StorageHandler)
+	filesystems        = make(map[string]fs.FS)
+	storageManifest    = make(manifest.ResourceManifest)
 )
 
 // =================================================================
@@ -69,14 +72,14 @@ func GetSubManifest(root string) (manifest.ResourceManifest, error) {
 // Registration
 // =================================================================
 
-// RegisterCache registers a new storage cache for a collection of asset types.
-func RegisterCache(cache ...Cache) error {
-	for _, c := range cache {
+// RegisterStorageSystems registers a new storage for a collection of asset types.
+func RegisterStorageSystems(store ...StorageHandler) error {
+	for _, c := range store {
 		for assetType := range c.AssetTypes() {
-			if _, exists := cacheByAssetType[assetType]; exists {
-				return errors.NewDuplicateError("storage cache already exists for asset type: " + assetType)
+			if _, exists := storageByAssetType[assetType]; exists {
+				return errors.NewDuplicateError("storage already exists for asset type: " + assetType)
 			}
-			cacheByAssetType[assetType] = c
+			storageByAssetType[assetType] = c
 		}
 	}
 	return nil
@@ -206,14 +209,14 @@ func load_batch(batch []types.Pair[string, manifest.ResourceMetadata]) error {
 
 		ext := strings.ToLower(filepath.Ext(requestPath))
 
-		cache, exists := cacheByAssetType[ext]
+		store, exists := storageByAssetType[ext]
 		if !exists {
-			return errors.NewNotFoundError("no cache found for asset type: " + ext)
+			return errors.NewNotFoundError("no storage found for asset type: " + ext)
 		}
 
-		cacheByKey[key] = cache
-		if err := cache.Allocate(key, raw); err != nil {
-			delete(cacheByKey, key)
+		storageByKey[key] = store
+		if err := store.Allocate(key, raw); err != nil {
+			delete(storageByKey, key)
 			return err
 		}
 	}
@@ -225,13 +228,13 @@ func load_batch(batch []types.Pair[string, manifest.ResourceMetadata]) error {
 //
 // Unloaded data should be considered no longer valid, and could result in unintended behavior.
 func Unload(key string) error {
-	cache := cacheByKey[key]
-	delete(cacheByKey, key)
+	store := storageByKey[key]
+	delete(storageByKey, key)
 
-	if cache == nil {
+	if store == nil {
 		return nil
 	}
-	return cache.Deallocate(key)
+	return store.Deallocate(key)
 }
 
 // =================================================================
@@ -239,9 +242,9 @@ func Unload(key string) error {
 // =================================================================
 
 func SetDefault(key string) error {
-	cache := cacheByKey[key]
-	if cache == nil {
-		return errors.NewNotFoundError("no cache found for key: " + key)
+	store := storageByKey[key]
+	if store == nil {
+		return errors.NewNotFoundError("no storage found for key: " + key)
 	}
-	return cache.SetDefault(key)
+	return store.SetDefault(key)
 }

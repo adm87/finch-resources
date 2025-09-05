@@ -6,7 +6,9 @@ import (
 )
 
 func RegisterModule() error {
-	if err := storage.RegisterCache(images.Cache()); err != nil {
+	if err := storage.RegisterStorageSystems(
+		images.Storage(),
+	); err != nil {
 		return err
 	}
 	return nil
