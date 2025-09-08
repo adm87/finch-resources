@@ -18,6 +18,10 @@ func (s *Store[T]) SetDefault(fallback string) {
 	s.fallback = fallback
 }
 
+func (s *Store[T]) Default() string {
+	return s.fallback
+}
+
 // Add adds an item to the store with the given name.
 // Returns an error if the name is empty, the item is nil, or an item with the same name already exists.
 func (s *Store[T]) Add(name string, item T) error {
@@ -29,6 +33,14 @@ func (s *Store[T]) Add(name string, item T) error {
 		return errors.NewDuplicateError("item already exists: " + name)
 	}
 
+	s.items[name] = item
+	return nil
+}
+
+func (s *Store[T]) Set(name string, item T) error {
+	if name == "" {
+		return errors.InvalidArgumentError("item name cannot be empty")
+	}
 	s.items[name] = item
 	return nil
 }

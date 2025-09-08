@@ -61,7 +61,7 @@ func (c *ImageStorage) Allocate(key string, data []byte) error {
 	return nil
 }
 
-func (c *ImageStorage) PutValue(key string, value any) error {
+func (c *ImageStorage) Put(key string, value any) error {
 	img, ok := value.(*ebiten.Image)
 	if !ok {
 		return errors.NewInvalidArgumentError("value must be of type *ebiten.Image")
@@ -70,7 +70,15 @@ func (c *ImageStorage) PutValue(key string, value any) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if err := c.store.Add(key, img); err != nil {
+	exists, err := c.store.Has(key)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return errors.NewDuplicateError("image already exists in storage: " + key)
+	}
+
+	if err := c.store.Set(key, img); err != nil {
 		img.Deallocate()
 		return err
 	}
@@ -115,6 +123,13 @@ func (c *ImageStorage) SetDefault(key string) error {
 
 	c.store.SetDefault(key)
 	return nil
+}
+
+func (c *ImageStorage) DefaultKey() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.store.Default()
 }
 
 func (c *ImageStorage) Has(key string) bool {
