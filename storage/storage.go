@@ -18,24 +18,24 @@ import (
 	"github.com/adm87/finch-resources/manifest"
 )
 
-// StorageHandler defines the interface for a resource storage management system.
+// ResourceHandler defines the interface for a resource storage management system.
 //
 // Loaded resources are cached within the storage handler, and can be written to disk or deallocated as needed.
-type StorageHandler interface {
-	Has(key string) bool                    // Check if a specific key exists in the storage and return its value.
-	Put(key string, data any) error         // Store a value for a specific key.
-	Allocate(key string, data []byte) error // Allocate data for a specific key.
-	Deallocate(key string) error            // Deallocate data for a specific key.
-	AssetTypes() types.HashSet[string]      // Return the asset types (file extensions) supported by the storage.
-	SetDefault(key string) error            // Set the data for a specific key as the default data. This is returned if a key is not found.
-	DefaultKey() string                     // Return the default key for the storage handler. Returns an empty string if no default is set.
+type ResourceHandler interface {
+	ResourceTypes() []string // ResourceTypes returns a list of file extensions that this handler can manage.
+
+	StoreData(key string, data []byte, resourceType string) error // StoreData stores the raw data as a usable resource.
+	ClearData(key string) error                                   // ClearData deallocates and removes the resource data from memory.
+
+	Fallback() string             // Fallback returns the key of the fallback resource for this handler, or an empty string if none exists.
+	SetFallback(key string) error // SetFallback sets the key of the fallback resource for this handler. Panics is the key is an empty string or isn't loaded.
 }
 
 var (
-	storageByAssetType = make(map[string]StorageHandler)
-	storageByKey       = make(map[string]StorageHandler)
-	filesystems        = make(map[string]fs.FS)
-	storageManifest    = make(manifest.ResourceManifest)
+	handlersByAssetType = make(map[string]ResourceHandler)
+	handlersByKey       = make(map[string]ResourceHandler)
+	filesystems         = make(map[string]fs.FS)
+	storageManifest     = make(manifest.ResourceManifest)
 )
 
 // =================================================================
@@ -74,14 +74,17 @@ func GetSubManifest(root string) (manifest.ResourceManifest, error) {
 // Registration
 // =================================================================
 
-// RegisterStorageSystems registers a new storage for a collection of asset types.
-func RegisterStorageSystems(store ...StorageHandler) error {
-	for _, c := range store {
-		for assetType := range c.AssetTypes() {
-			if _, exists := storageByAssetType[assetType]; exists {
-				return errors.NewDuplicateError("storage already exists for asset type: " + assetType)
+// RegisterResourceHandler registers a new storage for a collection of asset types.
+func RegisterResourceHandler(handler ...ResourceHandler) error {
+	for _, c := range handler {
+		if c == nil {
+			return errors.NewNilError("nil resource handler")
+		}
+		for _, rt := range c.ResourceTypes() {
+			if _, exists := handlersByAssetType[rt]; exists {
+				return errors.NewDuplicateError("storage already exists for asset type: " + rt)
 			}
-			storageByAssetType[assetType] = c
+			handlersByAssetType[rt] = c
 		}
 	}
 	return nil
@@ -200,25 +203,25 @@ func load_batch(batch []types.Pair[string, manifest.ResourceMetadata]) error {
 		}
 		defer file.Close()
 
-		raw, err := io.ReadAll(file)
+		data, err := io.ReadAll(file)
 		if err != nil {
 			return err
 		}
 
-		if requestSize != int64(len(raw)) {
-			println(errors.NewConflictError(fmt.Sprintf("resource size mismatch. Expected %d, got %d", requestSize, len(raw))))
+		if requestSize != int64(len(data)) {
+			println(errors.NewConflictError(fmt.Sprintf("resource size mismatch. Expected %d, got %d", requestSize, len(data))))
 		}
 
-		ext := strings.ToLower(filepath.Ext(requestPath))
+		ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(requestPath)), ".")
 
-		store, exists := storageByAssetType[ext]
+		handler, exists := handlersByAssetType[ext]
 		if !exists {
 			return errors.NewNotFoundError("no storage found for asset type: " + ext)
 		}
 
-		storageByKey[key] = store
-		if err := store.Allocate(key, raw); err != nil {
-			delete(storageByKey, key)
+		handlersByKey[key] = handler
+		if err := handler.StoreData(key, data, ext); err != nil {
+			delete(handlersByKey, key)
 			return err
 		}
 	}
@@ -239,24 +242,24 @@ func Unload(keys ...string) error {
 }
 
 func unload(key string) error {
-	store := storageByKey[key]
-	delete(storageByKey, key)
+	handler := handlersByKey[key]
+	delete(handlersByKey, key)
 
-	if store == nil {
+	if handler == nil {
 		return nil
 	}
 
-	return store.Deallocate(key)
+	return handler.ClearData(key)
 }
 
 // =================================================================
 // Utility
 // =================================================================
 
-func SetDefault(key string) error {
-	store := storageByKey[key]
-	if store == nil {
+func SetFallback(key string) error {
+	handler := handlersByKey[key]
+	if handler == nil {
 		return errors.NewNotFoundError("no storage found for key: " + key)
 	}
-	return store.SetDefault(key)
+	return handler.SetFallback(key)
 }
