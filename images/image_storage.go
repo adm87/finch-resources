@@ -116,3 +116,11 @@ func (c *ImageStorage) SetDefault(key string) error {
 	c.store.SetDefault(key)
 	return nil
 }
+
+func (c *ImageStorage) Has(key string) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	exists, _ := c.store.Has(key)
+	return exists
+}

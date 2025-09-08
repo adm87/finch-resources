@@ -27,6 +27,7 @@ type StorageHandler interface {
 	Deallocate(key string) error            // Deallocate data for a specific key.
 	AssetTypes() types.HashSet[string]      // Return the asset types (file extensions) supported by the storage.
 	SetDefault(key string) error            // Set the data for a specific key as the default data. This is returned if a key is not found.
+	Has(key string) bool                    // Check if a specific key exists in the storage and return its value.
 }
 
 var (
