@@ -229,13 +229,23 @@ func load_batch(batch []types.Pair[string, manifest.ResourceMetadata]) error {
 // Unload removes and deallocates data for a specific key.
 //
 // Unloaded data should be considered no longer valid, and could result in unintended behavior.
-func Unload(key string) error {
+func Unload(keys ...string) error {
+	for _, key := range linq.Distinct(keys) {
+		if err := unload(key); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func unload(key string) error {
 	store := storageByKey[key]
 	delete(storageByKey, key)
 
 	if store == nil {
 		return nil
 	}
+
 	return store.Deallocate(key)
 }
 
