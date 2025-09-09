@@ -1,11 +1,13 @@
 package module
 
 import (
-	"github.com/adm87/finch-resources/storage"
+	"github.com/adm87/finch-resources/resources"
 )
 
 func RegisterModule() error {
-	if err := storage.RegisterResourceHandler(); err != nil {
+	if err := resources.RegisterHandler(
+		resources.Images(),
+	); err != nil {
 		return err
 	}
 	return nil

@@ -1,4 +1,4 @@
-package storage
+package resources
 
 import (
 	"embed"
@@ -18,9 +18,9 @@ import (
 	"github.com/adm87/finch-resources/manifest"
 )
 
-// ResourceHandler defines the interface for a resource storage management system.
+// ResourceHandler defines the interface for a resource management system.
 //
-// Loaded resources are cached within the storage handler, and can be written to disk or deallocated as needed.
+// Loaded resources are cached within the handler, and can be written to disk or deallocated as needed.
 type ResourceHandler interface {
 	ResourceTypes() []string // ResourceTypes returns a list of file extensions that this handler can manage.
 
@@ -29,6 +29,8 @@ type ResourceHandler interface {
 
 	Fallback() string             // Fallback returns the key of the fallback resource for this handler, or an empty string if none exists.
 	SetFallback(key string) error // SetFallback sets the key of the fallback resource for this handler. Panics is the key is an empty string or isn't loaded.
+
+	IsLoaded(key string) bool // IsLoaded returns true if the resource for the given key is currently loaded.
 }
 
 var (
@@ -74,8 +76,8 @@ func GetSubManifest(root string) (manifest.ResourceManifest, error) {
 // Registration
 // =================================================================
 
-// RegisterResourceHandler registers a new storage for a collection of asset types.
-func RegisterResourceHandler(handler ...ResourceHandler) error {
+// RegisterHandler registers a new storage for a collection of asset types.
+func RegisterHandler(handler ...ResourceHandler) error {
 	for _, c := range handler {
 		if c == nil {
 			return errors.NewNilError("nil resource handler")

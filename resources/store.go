@@ -1,4 +1,4 @@
-package storage
+package resources
 
 import "github.com/adm87/finch-core/errors"
 
