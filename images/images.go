@@ -1,9 +1,10 @@
-package resources
+package images
 
 import (
 	"bytes"
 
 	"github.com/adm87/finch-core/errors"
+	"github.com/adm87/finch-resources/resources"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
@@ -15,16 +16,16 @@ import (
 var resource_types = []string{"png", "jpg", "jpeg"}
 var handlerInstance = &ImageResourceHandler{
 	fallbackKey: "",
-	store:       NewStore[*ebiten.Image](),
+	store:       resources.NewStore[*ebiten.Image](),
 }
 
-func Images() *ImageResourceHandler {
+func Resources() *ImageResourceHandler {
 	return handlerInstance
 }
 
 type ImageResourceHandler struct {
 	fallbackKey string
-	store       *Store[*ebiten.Image]
+	store       *resources.Store[*ebiten.Image]
 }
 
 func (handler *ImageResourceHandler) Get(key string) (*ebiten.Image, error) {
@@ -78,14 +79,14 @@ func (handler *ImageResourceHandler) ClearData(key string) error {
 }
 
 func (handler *ImageResourceHandler) Fallback() string {
-	return handler.fallbackKey
+	return handler.store.Default()
 }
 
 func (handler *ImageResourceHandler) SetFallback(key string) error {
 	if key == "" {
 		return errors.NewInvalidArgumentError("fallback key cannot be empty")
 	}
-	handler.fallbackKey = key
+	handler.store.SetDefault(key)
 	return nil
 }
 

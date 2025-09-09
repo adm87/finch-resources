@@ -218,7 +218,7 @@ func load_batch(batch []types.Pair[string, manifest.ResourceMetadata]) error {
 
 		handler, exists := handlersByAssetType[ext]
 		if !exists {
-			return errors.NewNotFoundError("no storage found for asset type: " + ext)
+			return errors.NewNotFoundError("no resource handler found for asset type: " + ext)
 		}
 
 		handlersByKey[key] = handler
