@@ -4,8 +4,8 @@ import (
 	"sync"
 
 	"github.com/adm87/finch-core/finch"
+	"github.com/adm87/finch-core/linq"
 	"github.com/adm87/finch-core/utils"
-	"github.com/adm87/finch-resources/manifest"
 )
 
 var (
@@ -19,8 +19,10 @@ type ResourceSystem interface {
 	ResourceTypes() []string
 	Type() ResourceSystemType
 
-	Load(ctx finch.Context, key string, metadata manifest.Metadata) error
+	Load(ctx finch.Context, key string, metadata Metadata) error
 	Unload(ctx finch.Context, key string) error
+
+	GetProperties(resourceType string) (map[string]any, error)
 }
 
 type ResourceSystemType uint64
@@ -67,4 +69,11 @@ func GetSystem(st ResourceSystemType) ResourceSystem {
 		return sys
 	}
 	return nil
+}
+
+func GetSupportedResourceTypes() []string {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	return linq.Keys(byResourceType)
 }

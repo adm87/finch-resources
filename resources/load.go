@@ -8,14 +8,13 @@ import (
 
 	"github.com/adm87/finch-core/finch"
 	"github.com/adm87/finch-core/linq"
-	"github.com/adm87/finch-resources/manifest"
 )
 
 const BatchSize = 100
 
 type LoadRequest struct {
 	key      string
-	metadata *manifest.Metadata
+	metadata *Metadata
 }
 
 func Load(ctx finch.Context, keys ...string) {
@@ -33,7 +32,7 @@ func Load(ctx finch.Context, keys ...string) {
 		metadata, exists := loadedManifest[key]
 
 		if !exists {
-			ctx.Logger().Warn("resource key not found in manifest, skipping", slog.String("key", key))
+			ctx.Logger().Warn("cannot find metadata in manifest for", slog.String("key", key))
 			continue
 		}
 
@@ -48,15 +47,12 @@ func Load(ctx finch.Context, keys ...string) {
 		return
 	}
 
-	batches := linq.Batch(requests, BatchSize)
-	ctx.Logger().Info("loading resources", slog.Int("total", len(requests)), slog.Int("batches", len(batches)))
-
-	load_batches(ctx, batches)
+	load_batches(ctx, linq.Batch(requests, BatchSize))
 }
 
 func load_batches(ctx finch.Context, batches [][]LoadRequest) {
 	if len(batches) == 1 {
-		load_batch(ctx, 0, batches[0])
+		load_batch(ctx, 1, batches[0])
 		return
 	}
 
@@ -75,7 +71,7 @@ func load_batches(ctx finch.Context, batches [][]LoadRequest) {
 			}()
 
 			load_batch(c, id, requests)
-		}(ctx, i, batch)
+		}(ctx, i+1, batch)
 	}
 	wg.Wait()
 
