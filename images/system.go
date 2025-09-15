@@ -3,10 +3,10 @@ package images
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/adm87/finch-core/finch"
+	"github.com/adm87/finch-core/types"
 	"github.com/adm87/finch-resources/resources"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -15,15 +15,22 @@ import (
 var systemType = resources.NewResourceSystemKey[*ImageResourceSystem]()
 
 type ImageResourceSystem struct {
-	images map[string]*ebiten.Image
-	mu     sync.RWMutex
+	images  map[string]*ebiten.Image
+	loading types.HashSet[string]
+	mu      sync.RWMutex
 }
 
 func NewImageResourceSystem() *ImageResourceSystem {
 	return &ImageResourceSystem{
-		images: make(map[string]*ebiten.Image),
-		mu:     sync.RWMutex{},
+		images:  make(map[string]*ebiten.Image),
+		loading: types.NewHashSet[string](),
+		mu:      sync.RWMutex{},
 	}
+}
+
+func Get(key string) (*ebiten.Image, bool) {
+	sys := resources.GetSystem(systemType).(*ImageResourceSystem)
+	return sys.GetImage(key)
 }
 
 func (irs *ImageResourceSystem) ResourceTypes() []string {
@@ -35,9 +42,15 @@ func (irs *ImageResourceSystem) Type() resources.ResourceSystemType {
 }
 
 func (irs *ImageResourceSystem) Load(ctx finch.Context, key string, metadata resources.Metadata) error {
-	if _, exists := irs.images[key]; exists {
-		return fmt.Errorf("image '%s' already loaded", key)
+	if !irs.try_load(key) {
+		return nil
 	}
+
+	defer func() {
+		irs.mu.Lock()
+		irs.loading.Remove(key)
+		irs.mu.Unlock()
+	}()
 
 	data, err := resources.LoadData(ctx, key, metadata)
 	if err != nil {
@@ -50,9 +63,8 @@ func (irs *ImageResourceSystem) Load(ctx finch.Context, key string, metadata res
 	}
 
 	irs.mu.Lock()
-	defer irs.mu.Unlock()
-
 	irs.images[key] = img
+	irs.mu.Unlock()
 	return nil
 }
 
@@ -72,7 +84,25 @@ func (irs *ImageResourceSystem) GetImage(key string) (*ebiten.Image, bool) {
 	return img, exists
 }
 
-func Get(key string) (*ebiten.Image, bool) {
-	sys := resources.GetSystem(systemType).(*ImageResourceSystem)
-	return sys.GetImage(key)
+func (irs *ImageResourceSystem) IsLoaded(key string) bool {
+	irs.mu.RLock()
+	defer irs.mu.RUnlock()
+
+	_, exists := irs.images[key]
+	return exists
+}
+
+func (irs *ImageResourceSystem) try_load(key string) bool {
+	irs.mu.Lock()
+	defer irs.mu.Unlock()
+
+	if _, exists := irs.images[key]; exists {
+		return false
+	}
+	if irs.loading.Contains(key) {
+		return false
+	}
+
+	irs.loading.Add(key)
+	return true
 }

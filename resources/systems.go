@@ -15,12 +15,18 @@ var (
 	mu sync.RWMutex
 )
 
+// ResourceSystem defines a system that can load and manage resources of specific types.
+//
+// Each ResourceSystem must implement this interface to be registered and used within the resource management framework.
+// ResourceSystems are responsible for loading, unloading, and providing metadata properties for resources of the types they support.
+// The resource management framework loads large numbers of resources in batches, so ResourceSystems should be designed to handle concurrent load requests efficiently.
 type ResourceSystem interface {
 	ResourceTypes() []string
 	Type() ResourceSystemType
 
 	Load(ctx finch.Context, key string, metadata Metadata) error
 	Unload(ctx finch.Context, key string) error
+	IsLoaded(key string) bool
 
 	GetProperties(resourceType string) (map[string]any, error)
 }
