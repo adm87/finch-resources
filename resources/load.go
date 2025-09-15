@@ -34,27 +34,60 @@ func Load(ctx finch.Context, keys ...string) {
 		return
 	}
 
-	requests := make([]LoadRequest, 0)
-	for _, key := range linq.Distinct(keys) {
-		metadata, exists := loadedManifest[key]
+	ctx.Logger().Info("resource load requested:", slog.Int("count", len(keys)))
 
-		if !exists {
-			ctx.Logger().Warn("cannot find metadata in manifest:", slog.String("key", key))
-			continue
-		}
+	requests := make(map[string]LoadRequest)
+	build_requests(ctx, requests, linq.Distinct(keys))
 
-		requests = append(requests, LoadRequest{
-			key:      key,
-			metadata: metadata,
-		})
-	}
+	r := linq.Values(requests)
 
-	if len(requests) == 0 {
+	if len(r) == 0 {
 		ctx.Logger().Warn("no valid resource keys provided to load")
 		return
 	}
 
-	load_batches(ctx, linq.Batch(requests, BatchSize))
+	load_batches(ctx, linq.Batch(r, BatchSize))
+}
+
+func build_requests(ctx finch.Context, requests map[string]LoadRequest, key []string) {
+	for _, k := range key {
+		if _, exists := requests[k]; exists {
+			continue
+		}
+
+		metadata, exists := loadedManifest[k]
+
+		if !exists {
+			ctx.Logger().Warn("cannot find metadata in manifest:", slog.String("key", k))
+			continue
+		}
+
+		requests[k] = LoadRequest{
+			key:      k,
+			metadata: metadata,
+		}
+
+		if dependencies := fetch_request_dependencies(ctx, k, metadata); len(dependencies) > 0 {
+			ctx.Logger().Info("resource dependencies found:", slog.String("key", k), slog.Any("dependencies", dependencies))
+
+			build_requests(ctx, requests, dependencies)
+		}
+	}
+}
+
+func fetch_request_dependencies(ctx finch.Context, key string, metadata *Metadata) []string {
+	if metadata == nil {
+		return nil
+	}
+
+	sys := SystemForType(metadata.Type)
+
+	if sys == nil {
+		ctx.Logger().Warn("cannot find resource system for type:", slog.String("type", metadata.Type))
+		return nil
+	}
+
+	return sys.GetDependencies(ctx, key, metadata)
 }
 
 func load_batches(ctx finch.Context, batches [][]LoadRequest) {
@@ -101,7 +134,7 @@ func load_batch(ctx finch.Context, id int, requests []LoadRequest) {
 		return
 	}
 
-	ctx.Logger().Info("loading resources:", slog.Int("batch", id), slog.Int("total", len(requests)))
+	ctx.Logger().Info("resource loading begin:", slog.Int("batch", id), slog.Int("count", len(requests)))
 
 	success := 0
 	skipped := 0
@@ -126,5 +159,5 @@ func load_batch(ctx finch.Context, id int, requests []LoadRequest) {
 		success++
 	}
 
-	ctx.Logger().Info("finished loading resources:", slog.Int("batch", id), slog.Int("total", len(requests)), slog.Int("success", success), slog.Int("skipped", skipped), slog.Int("failed", failed))
+	ctx.Logger().Info("resource loading finished:", slog.Int("batch", id), slog.Int("count", len(requests)), slog.Int("success", success), slog.Int("skipped", skipped), slog.Int("failed", failed))
 }

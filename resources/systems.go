@@ -29,7 +29,8 @@ type ResourceSystem interface {
 	Load(ctx finch.Context, key string, metadata *Metadata) error
 	Unload(ctx finch.Context, key string) error
 
-	GenerateMetadata(key string, metadata *Metadata) error
+	GenerateMetadata(ctx finch.Context, key string, metadata *Metadata) error
+	GetDependencies(ctx finch.Context, key string, metadata *Metadata) []string
 }
 
 type ResourceSystemType uint64
