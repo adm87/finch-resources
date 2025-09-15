@@ -96,20 +96,28 @@ func load_batch(ctx finch.Context, id int, requests []LoadRequest) {
 
 	ctx.Logger().Info("loading resources", slog.Int("batch", id), slog.Int("size", len(requests)))
 
+	success := 0
+	skipped := 0
+	failed := 0
+
 	for _, req := range requests {
 		rt := req.metadata.Type
 
 		sys := SystemForType(rt)
 		if sys == nil {
-			ctx.Logger().Warn("no resource system found for type, skipping", slog.Int("batch", id), slog.String("key", req.key), slog.String("type", rt))
+			ctx.Logger().Warn("cannot find resource system for type:", slog.String("type", rt), slog.String("key", req.key), slog.Int("batch", id))
+			skipped++
 			continue
 		}
 
 		if err := sys.Load(ctx, req.key, *req.metadata); err != nil {
-			ctx.Logger().Error("error loading resource", slog.Int("batch", id), slog.String("key", req.key), slog.String("type", rt), slog.String("error", err.Error()))
+			ctx.Logger().Error("error loading resource:", slog.String("type", rt), slog.String("key", req.key), slog.Int("batch", id), slog.String("error", err.Error()))
+			failed++
 			continue
 		}
+
+		success++
 	}
 
-	ctx.Logger().Info("finished loading resources", slog.Int("batch", id), slog.Int("size", len(requests)))
+	ctx.Logger().Info("finished loading resources:", slog.Int("batch", id), slog.Int("size", len(requests)), slog.Int("success", success), slog.Int("skipped", skipped), slog.Int("failed", failed))
 }
