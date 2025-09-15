@@ -12,6 +12,13 @@ import (
 
 const BatchSize = 100
 
+var batchIdCounter = 0
+
+func next_batch_id() int {
+	batchIdCounter++
+	return batchIdCounter
+}
+
 type LoadRequest struct {
 	key      string
 	metadata *Metadata
@@ -32,7 +39,7 @@ func Load(ctx finch.Context, keys ...string) {
 		metadata, exists := loadedManifest[key]
 
 		if !exists {
-			ctx.Logger().Warn("cannot find metadata in manifest for", slog.String("key", key))
+			ctx.Logger().Warn("cannot find metadata in manifest:", slog.String("key", key))
 			continue
 		}
 
@@ -52,7 +59,7 @@ func Load(ctx finch.Context, keys ...string) {
 
 func load_batches(ctx finch.Context, batches [][]LoadRequest) {
 	if len(batches) == 1 {
-		load_batch(ctx, 1, batches[0])
+		load_batch(ctx, next_batch_id(), batches[0])
 		return
 	}
 
@@ -60,7 +67,7 @@ func load_batches(ctx finch.Context, batches [][]LoadRequest) {
 	wg := sync.WaitGroup{}
 
 	wg.Add(len(batches))
-	for i, batch := range batches {
+	for _, batch := range batches {
 		go func(c finch.Context, id int, requests []LoadRequest) {
 			defer wg.Done()
 
@@ -71,7 +78,7 @@ func load_batches(ctx finch.Context, batches [][]LoadRequest) {
 			}()
 
 			load_batch(c, id, requests)
-		}(ctx, i+1, batch)
+		}(ctx, next_batch_id(), batch)
 	}
 	wg.Wait()
 
@@ -94,7 +101,7 @@ func load_batch(ctx finch.Context, id int, requests []LoadRequest) {
 		return
 	}
 
-	ctx.Logger().Info("loading resources", slog.Int("batch", id), slog.Int("size", len(requests)))
+	ctx.Logger().Info("loading resources:", slog.Int("batch", id), slog.Int("size", len(requests)))
 
 	success := 0
 	skipped := 0
