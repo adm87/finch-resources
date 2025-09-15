@@ -45,7 +45,7 @@ func Load(ctx finch.Context, keys ...string) {
 
 		requests = append(requests, LoadRequest{
 			key:      key,
-			metadata: &metadata,
+			metadata: metadata,
 		})
 	}
 
@@ -101,7 +101,7 @@ func load_batch(ctx finch.Context, id int, requests []LoadRequest) {
 		return
 	}
 
-	ctx.Logger().Info("loading resources:", slog.Int("batch", id), slog.Int("size", len(requests)))
+	ctx.Logger().Info("loading resources:", slog.Int("batch", id), slog.Int("total", len(requests)))
 
 	success := 0
 	skipped := 0
@@ -117,7 +117,7 @@ func load_batch(ctx finch.Context, id int, requests []LoadRequest) {
 			continue
 		}
 
-		if err := sys.Load(ctx, req.key, *req.metadata); err != nil {
+		if err := sys.Load(ctx, req.key, req.metadata); err != nil {
 			ctx.Logger().Error("error loading resource:", slog.String("type", rt), slog.String("key", req.key), slog.Int("batch", id), slog.String("error", err.Error()))
 			failed++
 			continue
@@ -126,5 +126,5 @@ func load_batch(ctx finch.Context, id int, requests []LoadRequest) {
 		success++
 	}
 
-	ctx.Logger().Info("finished loading resources:", slog.Int("batch", id), slog.Int("size", len(requests)), slog.Int("success", success), slog.Int("skipped", skipped), slog.Int("failed", failed))
+	ctx.Logger().Info("finished loading resources:", slog.Int("batch", id), slog.Int("total", len(requests)), slog.Int("success", success), slog.Int("skipped", skipped), slog.Int("failed", failed))
 }

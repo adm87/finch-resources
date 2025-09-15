@@ -14,7 +14,7 @@ import (
 
 const JsonName = "resource.manifest"
 
-type Manifest map[string]Metadata
+type Manifest map[string]*Metadata
 
 type Metadata struct {
 	Root       string         `json:"root"`
@@ -75,7 +75,7 @@ func GenerateManifest(ctx finch.Context, root string) Manifest {
 
 		ext = strings.TrimPrefix(ext, ".")
 		if !supportedTypes.Contains(ext) {
-			ctx.Logger().Warn("skipping unsupported resource type", slog.String("type", ext), slog.String("file", file))
+			ctx.Logger().Warn("skipping unsupported resource type", slog.String("path", p))
 			return nil
 		}
 
@@ -89,18 +89,18 @@ func GenerateManifest(ctx finch.Context, root string) Manifest {
 		relPath = strings.TrimPrefix(relPath, parts[0]+"/")
 		relPath = strings.TrimSuffix(relPath, file)
 
-		properties, err := SystemForType(ext).GetProperties(ext)
-		if err != nil {
-			return err
+		metadata := &Metadata{
+			Root: parts[0],
+			Type: ext,
+			Path: relPath,
 		}
 
-		m[name] = Metadata{
-			Root:       parts[0],
-			Type:       ext,
-			Path:       relPath,
-			Properties: properties,
+		if err := SystemForType(ext).GenerateMetadata(name, metadata); err != nil {
+			ctx.Logger().Error("failed to generate metadata for resource", slog.String("path", p), slog.Any("error", err))
+			return nil
 		}
 
+		m[name] = metadata
 		return nil
 	})
 

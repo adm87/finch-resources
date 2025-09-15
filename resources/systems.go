@@ -24,11 +24,12 @@ type ResourceSystem interface {
 	ResourceTypes() []string
 	Type() ResourceSystemType
 
-	Load(ctx finch.Context, key string, metadata Metadata) error
-	Unload(ctx finch.Context, key string) error
 	IsLoaded(key string) bool
 
-	GetProperties(resourceType string) (map[string]any, error)
+	Load(ctx finch.Context, key string, metadata *Metadata) error
+	Unload(ctx finch.Context, key string) error
+
+	GenerateMetadata(key string, metadata *Metadata) error
 }
 
 type ResourceSystemType uint64

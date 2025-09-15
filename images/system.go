@@ -23,7 +23,7 @@ type ImageResourceSystem struct {
 func NewImageResourceSystem() *ImageResourceSystem {
 	return &ImageResourceSystem{
 		images:  make(map[string]*ebiten.Image),
-		loading: types.NewHashSet[string](),
+		loading: make(types.HashSet[string]),
 		mu:      sync.RWMutex{},
 	}
 }
@@ -41,7 +41,15 @@ func (irs *ImageResourceSystem) Type() resources.ResourceSystemType {
 	return systemType
 }
 
-func (irs *ImageResourceSystem) Load(ctx finch.Context, key string, metadata resources.Metadata) error {
+func (irs *ImageResourceSystem) IsLoaded(key string) bool {
+	irs.mu.RLock()
+	defer irs.mu.RUnlock()
+
+	_, exists := irs.images[key]
+	return exists
+}
+
+func (irs *ImageResourceSystem) Load(ctx finch.Context, key string, metadata *resources.Metadata) error {
 	if !irs.try_load(key) {
 		return nil
 	}
@@ -72,8 +80,8 @@ func (irs *ImageResourceSystem) Unload(ctx finch.Context, key string) error {
 	return errors.New("not implemented")
 }
 
-func (irs *ImageResourceSystem) GetProperties(resourceType string) (map[string]any, error) {
-	return nil, nil
+func (irs *ImageResourceSystem) GenerateMetadata(key string, metadata *resources.Metadata) error {
+	return nil
 }
 
 func (irs *ImageResourceSystem) GetImage(key string) (*ebiten.Image, bool) {
@@ -82,14 +90,6 @@ func (irs *ImageResourceSystem) GetImage(key string) (*ebiten.Image, bool) {
 
 	img, exists := irs.images[key]
 	return img, exists
-}
-
-func (irs *ImageResourceSystem) IsLoaded(key string) bool {
-	irs.mu.RLock()
-	defer irs.mu.RUnlock()
-
-	_, exists := irs.images[key]
-	return exists
 }
 
 func (irs *ImageResourceSystem) try_load(key string) bool {

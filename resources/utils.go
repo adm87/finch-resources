@@ -11,7 +11,7 @@ import (
 	"github.com/adm87/finch-resources/filesystems"
 )
 
-func LoadData(ctx finch.Context, key string, metadata Metadata) ([]byte, error) {
+func LoadData(ctx finch.Context, key string, metadata *Metadata) ([]byte, error) {
 	sys := filesystems.Get(metadata.Root)
 	if sys == nil {
 		return nil, errors.New("no filesystem found for root: " + metadata.Root)
