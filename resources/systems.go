@@ -1,6 +1,8 @@
 package resources
 
 import (
+	"sync"
+
 	"github.com/adm87/finch-core/finch"
 	"github.com/adm87/finch-core/utils"
 	"github.com/adm87/finch-resources/manifest"
@@ -9,6 +11,8 @@ import (
 var (
 	byResourceType = make(map[string]ResourceSystem)
 	bySystemType   = make(map[ResourceSystemType]ResourceSystem)
+
+	mu sync.RWMutex
 )
 
 type ResourceSystem interface {
@@ -26,6 +30,9 @@ func NewResourceSystemKey[T ResourceSystem]() ResourceSystemType {
 }
 
 func RegisterSystem(system ResourceSystem) {
+	mu.Lock()
+	defer mu.Unlock()
+
 	st := system.Type()
 	if _, exists := bySystemType[st]; exists {
 		panic("resource system of type already registered")
@@ -38,9 +45,14 @@ func RegisterSystem(system ResourceSystem) {
 		}
 		byResourceType[rt] = system
 	}
+
+	bySystemType[st] = system
 }
 
 func SystemForType(rt string) ResourceSystem {
+	mu.RLock()
+	defer mu.RUnlock()
+
 	if sys, exists := byResourceType[rt]; exists {
 		return sys
 	}
@@ -48,6 +60,9 @@ func SystemForType(rt string) ResourceSystem {
 }
 
 func GetSystem(st ResourceSystemType) ResourceSystem {
+	mu.RLock()
+	defer mu.RUnlock()
+
 	if sys, exists := bySystemType[st]; exists {
 		return sys
 	}
