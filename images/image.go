@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/adm87/finch-core/finch"
@@ -74,6 +75,8 @@ func (rs *ImageResourceSystem) Load(ctx finch.Context, key string, metadata *res
 	rs.mu.Lock()
 	rs.images[key] = img
 	rs.mu.Unlock()
+
+	ctx.Logger().Info("resource loaded", slog.String("key", key))
 	return nil
 }
 
