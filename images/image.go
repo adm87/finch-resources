@@ -30,9 +30,13 @@ func NewImageResourceSystem() *ImageResourceSystem {
 	}
 }
 
-func Get(key string) (*ebiten.Image, bool) {
+func GetImage(key string) (*ebiten.Image, bool) {
 	sys := resources.GetSystem(systemType).(*ImageResourceSystem)
-	return sys.GetImage(key)
+	sys.mu.RLock()
+	defer sys.mu.RUnlock()
+
+	img, exists := sys.images[key]
+	return img, exists
 }
 
 func (rs *ImageResourceSystem) ResourceTypes() []string {
@@ -90,14 +94,6 @@ func (rs *ImageResourceSystem) GenerateMetadata(ctx finch.Context, key string, m
 
 func (rs *ImageResourceSystem) GetDependencies(ctx finch.Context, key string, metadata *resources.Metadata) []string {
 	return nil
-}
-
-func (rs *ImageResourceSystem) GetImage(key string) (*ebiten.Image, bool) {
-	rs.mu.RLock()
-	defer rs.mu.RUnlock()
-
-	img, exists := rs.images[key]
-	return img, exists
 }
 
 func (rs *ImageResourceSystem) try_load(key string) error {
