@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"encoding/json"
 	"log/slog"
 	"os"
 	"path"
@@ -14,16 +15,59 @@ import (
 
 const JsonName = "resource.manifest"
 
-type Manifest map[string]*Metadata
-
-type Metadata struct {
-	Root   string         `json:"root"`
-	Path   string         `json:"path,omitempty"`
-	Type   string         `json:"type"`
-	Extras map[string]any `json:"extras,omitempty"`
-}
+const (
+	MetadataRoot = "root"
+	MetadataPath = "path"
+	MetadataType = "type"
+)
 
 var loadedManifest Manifest
+
+var propertySetters = map[string]func(m *Metadata, v any){
+	MetadataRoot: func(m *Metadata, v any) { m.Root = v.(string) },
+	MetadataPath: func(m *Metadata, v any) { m.Path = v.(string) },
+	MetadataType: func(m *Metadata, v any) { m.Type = v.(string) },
+}
+
+type (
+	Manifest map[string]*Metadata
+	Metadata struct {
+		Root       string
+		Path       string
+		Type       string
+		Properties map[string]any
+	}
+)
+
+func (m Metadata) MarshalJSON() ([]byte, error) {
+	kvp := map[string]any{
+		MetadataRoot: m.Root,
+		MetadataType: m.Type,
+	}
+	if m.Path != "" {
+		kvp[MetadataPath] = m.Path
+	}
+	for k, v := range m.Properties {
+		kvp[k] = v
+	}
+	return json.Marshal(kvp)
+}
+
+func (m *Metadata) UnmarshalJSON(data []byte) error {
+	kvp := make(map[string]any)
+	if err := json.Unmarshal(data, &kvp); err != nil {
+		return err
+	}
+	m.Properties = make(map[string]any)
+	for k, v := range kvp {
+		if setter, exists := propertySetters[k]; exists {
+			setter(m, v)
+			continue
+		}
+		m.Properties[k] = v
+	}
+	return nil
+}
 
 func GetManifest() Manifest {
 	return loadedManifest

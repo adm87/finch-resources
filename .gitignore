@@ -7,6 +7,9 @@
 
 !LICENSE
 
+!enums/
+!enums/**/*
+
 !filesystems/
 !filesystems/**/*
 

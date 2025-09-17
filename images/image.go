@@ -31,7 +31,11 @@ func NewImageResourceSystem() *ImageResourceSystem {
 }
 
 func GetImage(key string) (*ebiten.Image, bool) {
-	sys := resources.GetSystem(systemType).(*ImageResourceSystem)
+	sys, ok := resources.GetSystem(systemType).(*ImageResourceSystem)
+	if !ok {
+		return nil, false
+	}
+
 	sys.mu.RLock()
 	defer sys.mu.RUnlock()
 

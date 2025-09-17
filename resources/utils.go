@@ -8,11 +8,10 @@ import (
 	"strings"
 
 	"github.com/adm87/finch-core/finch"
-	"github.com/adm87/finch-resources/filesystems"
 )
 
 func LoadData(ctx finch.Context, key string, metadata *Metadata) ([]byte, error) {
-	sys := filesystems.Get(metadata.Root)
+	sys := GetFilesystem(metadata.Root)
 	if sys == nil {
 		return nil, errors.New("no filesystem found for root: " + metadata.Root)
 	}
