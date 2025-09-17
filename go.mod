@@ -3,7 +3,7 @@ module github.com/adm87/finch-resources
 go 1.25.1
 
 require (
-	github.com/adm87/finch-core v0.0.0-20250917021205-6ffe64b65e85
+	github.com/adm87/finch-core v0.0.0-20250917103735-b195c2af1cf4
 	github.com/hajimehoshi/ebiten/v2 v2.8.8
 )
 

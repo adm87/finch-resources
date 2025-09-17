@@ -3,11 +3,10 @@ package {{ .Pkg }}
 
 {{- $byRoot := (include "byRoot" .Manifest) | fromYaml }}
 
-type ResourceKey string
-
 const (
 {{- range $root, $metadata := $byRoot }}
 {{ include "section.header" $root | indent 4 }}
+{{"\n"}}
 {{- range $item := $metadata }}
 {{ include "section.item" $item | indent 4 }}
 {{- end }}
@@ -33,5 +32,14 @@ const (
 {{- end -}}
 
 {{- define "section.item" -}}
-{{ .name | pascal }} ResourceKey = "{{ .name }}"
+{{- $doc := printf "%s" .root -}}
+{{- $path := .path | ifNil "" -}}
+{{- if ne $path "" -}}
+{{- $path = trim $path "/" -}}
+{{- $doc = printf "%s/%s" $doc $path -}}
+{{- end -}}
+{{- $doc = printf "%s/%s.%s" $doc .name .type -}}
+// {{ $doc }}
+{{ .name | pascal }} string = "{{ .name }}" 
+{{"\n"}}
 {{- end -}}

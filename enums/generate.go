@@ -4,8 +4,6 @@ import (
 	"embed"
 	"encoding/json"
 	"log/slog"
-	"os"
-	"path"
 
 	"github.com/adm87/finch-core/finch"
 	"github.com/adm87/finch-core/tmpl"
@@ -15,13 +13,13 @@ import (
 //go:embed template.tpl
 var tmplFS embed.FS
 
-func Generate(ctx finch.Context, manifest resources.Manifest, pkg string, dest string) {
+func Generate(ctx finch.Context, manifest resources.Manifest, pkg string, dest string) []byte {
 	ctx.Logger().Info("generating resource enums", slog.String("dest", dest))
 
 	data, err := tmplFS.ReadFile("template.tpl")
 	if err != nil {
 		ctx.Logger().Error("failed to read template", slog.String("error", err.Error()))
-		return
+		return nil
 	}
 
 	wrapper := struct {
@@ -32,12 +30,7 @@ func Generate(ctx finch.Context, manifest resources.Manifest, pkg string, dest s
 		Manifest: manifest_map(manifest),
 	}
 
-	content := tmpl.Render("enums.go", data, wrapper)
-
-	if err := os.WriteFile(path.Join(dest, "enums.go"), content, 0644); err != nil {
-		ctx.Logger().Error("failed to write enums file", slog.String("error", err.Error()))
-		return
-	}
+	return tmpl.Render("enums.go", data, wrapper)
 }
 
 func manifest_map(manifest resources.Manifest) map[string]any {
