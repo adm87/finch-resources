@@ -30,7 +30,7 @@ func NewImageResourceSystem() *ImageResourceSystem {
 	}
 }
 
-func GetImage(key string) (*ebiten.Image, bool) {
+func GetImage(handle resources.ResourceHandle) (*ebiten.Image, bool) {
 	sys, ok := resources.GetSystem(systemType).(*ImageResourceSystem)
 	if !ok {
 		return nil, false
@@ -39,7 +39,7 @@ func GetImage(key string) (*ebiten.Image, bool) {
 	sys.mu.RLock()
 	defer sys.mu.RUnlock()
 
-	img, exists := sys.images[key]
+	img, exists := sys.images[handle.Key()]
 	return img, exists
 }
 
@@ -51,15 +51,17 @@ func (rs *ImageResourceSystem) Type() resources.ResourceSystemType {
 	return systemType
 }
 
-func (rs *ImageResourceSystem) IsLoaded(key string) bool {
+func (rs *ImageResourceSystem) IsLoaded(handle resources.ResourceHandle) bool {
 	rs.mu.RLock()
 	defer rs.mu.RUnlock()
 
-	_, exists := rs.images[key]
+	_, exists := rs.images[handle.Key()]
 	return exists
 }
 
-func (rs *ImageResourceSystem) Load(ctx finch.Context, key string, metadata *resources.Metadata) error {
+func (rs *ImageResourceSystem) Load(ctx finch.Context, handle resources.ResourceHandle) error {
+	key := handle.Key()
+
 	if err := rs.try_load(key); err != nil {
 		return fmt.Errorf("image resource is already loading or loaded: %s", key)
 	}
@@ -69,6 +71,11 @@ func (rs *ImageResourceSystem) Load(ctx finch.Context, key string, metadata *res
 		rs.loading.Remove(key)
 		rs.mu.Unlock()
 	}()
+
+	metadata, exists := handle.Metadata()
+	if !exists {
+		return fmt.Errorf("cannot find metadata in manifest: %s", key)
+	}
 
 	data, err := resources.LoadData(ctx, key, metadata)
 	if err != nil {
@@ -88,15 +95,15 @@ func (rs *ImageResourceSystem) Load(ctx finch.Context, key string, metadata *res
 	return nil
 }
 
-func (rs *ImageResourceSystem) Unload(ctx finch.Context, key string) error {
+func (rs *ImageResourceSystem) Unload(ctx finch.Context, handle resources.ResourceHandle) error {
 	return errors.New("not implemented")
 }
 
-func (rs *ImageResourceSystem) GenerateMetadata(ctx finch.Context, key string, metadata *resources.Metadata) error {
+func (rs *ImageResourceSystem) GetDependencies(ctx finch.Context, handle resources.ResourceHandle) []resources.ResourceHandle {
 	return nil
 }
 
-func (rs *ImageResourceSystem) GetDependencies(ctx finch.Context, key string, metadata *resources.Metadata) []string {
+func (rs *ImageResourceSystem) GenerateMetadata(ctx finch.Context, key string, metadata *resources.Metadata) error {
 	return nil
 }
 

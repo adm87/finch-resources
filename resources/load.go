@@ -8,6 +8,7 @@ import (
 
 	"github.com/adm87/finch-core/finch"
 	"github.com/adm87/finch-core/linq"
+	"github.com/adm87/finch-core/types"
 )
 
 const BatchSize = 100
@@ -19,64 +20,48 @@ func next_batch_id() int {
 	return batchIdCounter
 }
 
-type LoadRequest struct {
-	key      string
-	metadata *Metadata
-}
-
-func Load(ctx finch.Context, keys ...string) {
+func Load(ctx finch.Context, handles ...ResourceHandle) {
 	if loadedManifest == nil {
 		panic("resource manifest not loaded, cannot load resources")
 	}
 
-	if len(keys) == 0 {
-		ctx.Logger().Warn("no resource keys provided to load")
+	if len(handles) == 0 {
+		ctx.Logger().Warn("no resource provided to load")
 		return
 	}
 
-	ctx.Logger().Info("resource load requested:", slog.Int("count", len(keys)))
+	ctx.Logger().Info("resource load requested:", slog.Int("count", len(handles)))
 
-	requests := make(map[string]LoadRequest)
-	build_requests(ctx, requests, linq.Distinct(keys))
+	requests := make(types.HashSet[ResourceHandle])
+	build_requests(ctx, requests, handles)
 
-	r := linq.Values(requests)
-
-	if len(r) == 0 {
-		ctx.Logger().Warn("no valid resource keys provided to load")
+	if len(requests) == 0 {
+		ctx.Logger().Warn("no valid resource requests built, nothing to load")
 		return
 	}
 
-	load_batches(ctx, linq.Batch(r, BatchSize))
+	load_batches(ctx, linq.Batch(requests.ToSlice(), BatchSize))
 }
 
-func build_requests(ctx finch.Context, requests map[string]LoadRequest, key []string) {
-	for _, k := range key {
-		if _, exists := requests[k]; exists {
+func build_requests(ctx finch.Context, requests types.HashSet[ResourceHandle], handles []ResourceHandle) {
+	for _, handle := range handles {
+		if _, exists := requests[handle]; exists {
 			continue
 		}
 
-		metadata, exists := loadedManifest[k]
+		requests.Add(handle)
 
-		if !exists {
-			ctx.Logger().Warn("cannot find metadata in manifest:", slog.String("key", k))
-			continue
-		}
-
-		requests[k] = LoadRequest{
-			key:      k,
-			metadata: metadata,
-		}
-
-		if dependencies := fetch_request_dependencies(ctx, k, metadata); len(dependencies) > 0 {
-			ctx.Logger().Info("resource dependencies found:", slog.String("key", k), slog.Any("dependencies", dependencies))
+		if dependencies := fetch_request_dependencies(ctx, handle); len(dependencies) > 0 {
+			ctx.Logger().Info("resource dependencies found:", slog.String("key", handle.Key()), slog.Any("count", len(dependencies)))
 
 			build_requests(ctx, requests, dependencies)
 		}
 	}
 }
 
-func fetch_request_dependencies(ctx finch.Context, key string, metadata *Metadata) []string {
-	if metadata == nil {
+func fetch_request_dependencies(ctx finch.Context, handle ResourceHandle) []ResourceHandle {
+	metadata, exists := handle.Metadata()
+	if !exists {
 		return nil
 	}
 
@@ -87,10 +72,10 @@ func fetch_request_dependencies(ctx finch.Context, key string, metadata *Metadat
 		return nil
 	}
 
-	return sys.GetDependencies(ctx, key, metadata)
+	return sys.GetDependencies(ctx, handle)
 }
 
-func load_batches(ctx finch.Context, batches [][]LoadRequest) {
+func load_batches(ctx finch.Context, batches [][]ResourceHandle) {
 	if len(batches) == 1 {
 		load_batch(ctx, next_batch_id(), batches[0])
 		return
@@ -101,7 +86,7 @@ func load_batches(ctx finch.Context, batches [][]LoadRequest) {
 
 	wg.Add(len(batches))
 	for _, batch := range batches {
-		go func(c finch.Context, id int, requests []LoadRequest) {
+		go func(c finch.Context, id int, requests []ResourceHandle) {
 			defer wg.Done()
 
 			defer func() {
@@ -129,7 +114,7 @@ func load_batches(ctx finch.Context, batches [][]LoadRequest) {
 	}
 }
 
-func load_batch(ctx finch.Context, id int, requests []LoadRequest) {
+func load_batch(ctx finch.Context, id int, requests []ResourceHandle) {
 	if len(requests) == 0 {
 		return
 	}
@@ -141,17 +126,24 @@ func load_batch(ctx finch.Context, id int, requests []LoadRequest) {
 	failed := 0
 
 	for _, req := range requests {
-		rt := req.metadata.Type
-
-		sys := SystemForType(rt)
-		if sys == nil {
-			ctx.Logger().Warn("cannot find resource system for type:", slog.String("type", rt), slog.String("key", req.key), slog.Int("batch", id))
+		metadata, exists := req.Metadata()
+		if !exists {
+			ctx.Logger().Warn("cannot find metadata in manifest:", slog.String("key", req.Key()), slog.Int("batch", id))
 			skipped++
 			continue
 		}
 
-		if err := sys.Load(ctx, req.key, req.metadata); err != nil {
-			ctx.Logger().Error("error loading resource:", slog.String("type", rt), slog.String("key", req.key), slog.Int("batch", id), slog.String("error", err.Error()))
+		rt := metadata.Type
+
+		sys := SystemForType(rt)
+		if sys == nil {
+			ctx.Logger().Warn("cannot find resource system for type:", slog.String("type", rt), slog.String("key", req.Key()), slog.Int("batch", id))
+			skipped++
+			continue
+		}
+
+		if err := sys.Load(ctx, req); err != nil {
+			ctx.Logger().Error("error loading resource:", slog.String("type", rt), slog.String("key", req.Key()), slog.Int("batch", id), slog.String("error", err.Error()))
 			failed++
 			continue
 		}
