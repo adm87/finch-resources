@@ -109,7 +109,7 @@ func GenerateManifest(ctx finch.Context, root string) Manifest {
 		}
 
 		ext := filepath.Ext(file)
-		name := strings.TrimSuffix(file, ext)
+		name := KeyFromPath(file)
 
 		if _, exists := m[name]; exists {
 			ctx.Logger().Warn("skipping duplicate resource name", slog.String("name", name), slog.String("path", relPath))

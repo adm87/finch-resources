@@ -36,3 +36,9 @@ func LoadData(ctx finch.Context, key string, metadata *Metadata) ([]byte, error)
 
 	return data, nil
 }
+
+func KeyFromPath(p string) string {
+	ext := path.Ext(p)
+	base := path.Base(p)
+	return strings.TrimSuffix(base, ext)
+}

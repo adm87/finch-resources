@@ -133,17 +133,16 @@ func load_batch(ctx finch.Context, id int, requests []ResourceHandle) {
 			continue
 		}
 
-		rt := metadata.Type
+		sys := SystemForType(metadata.Type)
 
-		sys := SystemForType(rt)
 		if sys == nil {
-			ctx.Logger().Warn("cannot find resource system for type:", slog.String("type", rt), slog.String("key", req.Key()), slog.Int("batch", id))
+			ctx.Logger().Warn("cannot find resource system for type:", slog.String("type", metadata.Type), slog.String("key", req.Key()), slog.Int("batch", id))
 			skipped++
 			continue
 		}
 
 		if err := sys.Load(ctx, req); err != nil {
-			ctx.Logger().Error("error loading resource:", slog.String("type", rt), slog.String("key", req.Key()), slog.Int("batch", id), slog.String("error", err.Error()))
+			ctx.Logger().Error("error loading resource:", slog.String("type", metadata.Type), slog.String("key", req.Key()), slog.Int("batch", id), slog.String("error", err.Error()))
 			failed++
 			continue
 		}
