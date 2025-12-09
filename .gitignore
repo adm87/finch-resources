@@ -1,27 +1,30 @@
-*
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
 
-!.gitignore
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.coverprofile
 
-!go.mod
-!go.sum
+# Go workspace file
+go.work
 
-!LICENSE
-!README.md
+# Dependency directories (remove the comment below if you use Go modules)
+vendor/
 
-!enums/
-!enums/**/*
+# Go build artifacts
+bin/
+build/
+dist/
 
-!filesystems/
-!filesystems/**/*
+# IDE/editor files
+.idea/
+.vscode/
+*.swp
+*.swo
 
-!images/
-!images/**/*
-
-!manifest/
-!manifest/**/*
-
-!module/
-!module/**/*
-
-!resources/
-!resources/**/*
+# Logs
+*.log
