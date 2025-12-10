@@ -1,4 +1,4 @@
-module resources/cmd
+module github.com/adm87/finch-resources/cmd
 
 go 1.25.4
 

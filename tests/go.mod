@@ -1,7 +1,5 @@
-module resources/tests
+module github.com/adm87/finch-resources/tests
 
 go 1.25.5
 
-replace resources => ../
-
-require resources v0.0.0-00010101000000-000000000000
+replace github.com/adm87/finch-resources/resources => ../resources

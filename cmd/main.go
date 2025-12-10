@@ -1,8 +1,7 @@
 package main
 
 import (
-	"resources/cmd/generate"
-
+	"github.com/adm87/finch-resources/cmd/generate"
 	"github.com/spf13/cobra"
 )
 

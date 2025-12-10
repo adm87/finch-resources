@@ -1,8 +1,7 @@
 package generate
 
 import (
-	"resources/cmd/generate/manifest"
-
+	"github.com/adm87/finch-resources/cmd/generate/manifest"
 	"github.com/spf13/cobra"
 )
 

@@ -3,9 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
-	"resources"
-	"resources/tests/data"
 	"testing"
+
+	"github.com/adm87/finch-resources/resources"
+	"github.com/adm87/finch-resources/tests/data"
 )
 
 type DataManager struct {

@@ -2,7 +2,7 @@ package data
 
 import (
 	"embed"
-	"resources"
+	"github.com/adm87/finch-resources/resources"
 )
 
 // =============== Embedded Directories ===============
